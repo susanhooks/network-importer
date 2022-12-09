@@ -32,6 +32,9 @@ LOGGER = logging.getLogger("network-importer")
 # Match the incorrectly capitalized interface names
 JUNOS_INTERFACE_PATTERN = re.compile(r"^(Xe|Ge|Et|Em|Sxe|Fte|Me|Fc|Xle)-\d+/\d+/\d+[.:]*\d*$")
 
+# Pattern for serial number appended to hostname in NXOS 5/6K
+SERIAL_HOSTNAME_PATTERN = re.compile(r"[\(\[].*?[\)\]]")
+
 
 # -----------------------------------------------------------------
 # Inventory Filter functions
@@ -126,6 +129,9 @@ class GetNeighbors(BaseProcessor):
             # Clean up hostname to remove full FQDN
             result[0].result["neighbors"][interface][0]["hostname"] = self.clean_neighbor_name(neighbors[0]["hostname"])
 
+            # Clean up hostname to remove Serial
+            result[0].result["neighbors"][interface][0]["hostname"] = self.clean_neighbor_serial(neighbors[0]["hostname"])
+
             # Clean up the portname if genie incorrectly capitalized it
             result[0].result["neighbors"][interface][0]["port"] = self.clean_neighbor_port_name(neighbors[0]["port"])
 
@@ -155,3 +161,19 @@ class GetNeighbors(BaseProcessor):
             return port_name
 
         return port_name
+
+    @classmethod
+    def clean_neighbor_serial(cls, neighbor_name):
+        """Remove serial number from hostname if exists.
+
+        Args:
+            neighbor_name ([str]): name of a neighbor returned by cdp or lldp
+
+        Returns: 
+            str: clean neighboar name
+        """
+        if SERIAL_HOSTNAME_PATTERN.match(neighbor_name):
+            neighbor_name = re.sub("[\(\[].*?[\)\]]", "", neighbor_name)
+            return neighbor_name
+
+        return neighbor_name
